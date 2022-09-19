@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>测试</title>
+	<style>
+		html,
+		body {
+			height: 100%;
+			margin: 0px;
+			padding: 0px;
+			font-size: 9px;
+		}
+		.block {
+			width: 450px;
+			display: block;
+			margin: 5px 0;
+		}
+		.center {
+			text-align: center;
+		}
+		div.block label {
+			display: inline-block;
+			width: 130px;
+			text-align: right;
+		}
+		input,
+		textarea {
+			vertical-align: top;
+		}
+	</style>
+</head>
+
+<body>
+	<!--将整个屏幕分成左右两部分-->
+	<div style="width:20%;float:left;height: 100%; ">
+		<div style="height: 20px;background-color:chocolate;">
+			<label style="text-align: center;display: inline-block;width: 100%; font-size: 12px;">扫描参数</label>
+		</div>
+		<form>
+			<div class="block">
+				<label for="showUI">是否显示组件界面：</label>
+				<select id="showUI">
+					<option value="true">显示</option>
+					<option value="false" selected>不显示</option>
+				</select>
+			</div>
+			<div class="block">
+				<label for="devices">扫描设备：</label>
+				<select id="devices"></select>
+			</div>
+			<div class="block">
+				<label for="dpi_x">设备输入分辨率：</label>
+				<input type="text" id="dpi_x" value="300" style="width: 25px;" /> X
+				<input type="text" id="dpi_y" value="300" style="width: 25px;" />
+			</div>
+			<div class="block">
+				<label for="showDialog">是否显示内置对话框：</label>
+				<select id="showDialog">
+					<option value="true">显示</option>
+					<option value="false" selected>不显示</option>
+				</select>
+			</div>
+			<div class="block">
+				<label for="feedEnable">自动进纸模式：</label>
+				<select id="feedEnable">
+					<option value="true">是</option>
+					<option value="false" selected>否</option>
+				</select>
+			</div>
+			<div class="block">
+				<label for="autoFeed">自动装填纸张：</label>
+				<select id="autoFeed">
+					<option value="true">是</option>
+					<option value="false" selected>否</option>
+				</select>
+			</div>
+			<div class="block">
+				<label>双面模式：</label>
+				<select id="dupxMode">
+					<option value="true">是</option>
+					<option value="false" selected>否</option>
+				</select>
+			</div>
+			<div class="block">
+				<label>自动纠偏：</label>
+				<select id="autoDeskew">
+					<option value="true">是</option>
+					<option value="false" selected>否</option>
+				</select>
+			</div>
+			<div class="block">
+				<label>自动边框检测：</label>
+				<select id="autoBorderDetection">
+					<option value="true">是</option>
+					<option value="false" selected>否</option>
+				</select>
+			</div>
+			<div id="imageList"></div>
+			<div>
+				<input type="button" value="获取设备列表" onclick="scanonweb.loadDevices();" />
+				<input type="button" value="开始扫描" onclick="startScan()" />
+				<input type="button" value="清空扫描结果" onclick="clearAll()" />
+				<input type="button" value="上传结果" onclick="uploadAllImageAsPdfFormat()" />
+			</div>			
+		</form>
+		<div>
+			<label style="color: red;margin-top: 15px;">注意本示例需要部署到web服务器下才可正常工作.</label> 
+			<p>
+				<a href="https://www.brainysoft.cn/download/ScanOnWebH5Install.exe" target="_blank">扫描服务托盘程序下载</a>
+				 <a href="https://www.brainysoft.cn/video/scanh5.mp4" target="_blank">视频教程</a>
+				 <a href="https://www.brainysoft.cn" target="_blank">官方网站</a>
+			</p>
+		</div>	
+	</div>
+	<div style="width:80%;float:right;height: 100%;">
+		<iframe src="./pdf/viewer.html??file=http://127.0.0.1:1134/pdf" width="100%" height="99%"
+			id="pdf_viewer"></iframe>
+	</div>
+
+
+	<script src="./scanonweb.js" type="text/javascript"></script>
+	<script type="text/javascript">
+		var scanonweb = new ScanOnWeb();
+
+		//响应返回扫描设备列表的回调函数
+		scanonweb.onGetDevicesListEvent = function (msg) {
+			var deviceListDom = document.getElementById('devices');
+
+			//clear devices list
+			deviceListDom.innerHTML = "";
+			for (var i = 0; i < deviceListDom.childNodes.length; i++) {
+				ardeviceListDomea.removeChild(deviceListDom.options[0]);
+				deviceListDom.remove(0);
+				deviceListDom.options[0] = null;
+			}
+
+			//add devices info
+			for (var i = 0; i < msg.devices.length; ++i) {
+				var opt = document.createElement("option");
+				opt.innerHTML = msg.devices[i];
+				if (i == msg.currentIndex) {
+					opt.selected = true;
+				}
+				deviceListDom.appendChild(opt);
+			}
+		}
+
+		//响应扫描完成事件
+		scanonweb.onScanFinishedEvent = function (msg) {
+			document.getElementById('pdf_viewer').contentWindow.location.reload();
+		}
+
+		//响应获取图像总数的回调函数
+		scanonweb.onGetImageCountEvent = function (msg) {
+			console.log("图像总数:" + msg.imageCount + " 当前编辑图像索引:" + msg.currentSelected);
+		}
+
+		//开始扫描命令
+		function startScan() {
+			if (document.getElementById("devices").selectedIndex == -1) {
+				alert('请先刷新或者选中要使用的扫描设备后再开始扫描!');
+				return;
+			}
+
+			//以下获取界面中的扫描参数设定
+			scanonweb.scaner_work_config.dpi_x = document.getElementById("dpi_x").value;
+			scanonweb.scaner_work_config.dpi_y = document.getElementById("dpi_y").value;
+			scanonweb.scaner_work_config.deviceIndex = document.getElementById("devices").selectedIndex;
+			scanonweb.scaner_work_config.showDialog = document.getElementById("showDialog").value;
+			scanonweb.scaner_work_config.autoFeedEnable = document.getElementById("feedEnable").value;
+			scanonweb.scaner_work_config.autoFeed = document.getElementById("autoFeed").value;
+			scanonweb.scaner_work_config.dupxMode = document.getElementById("dupxMode").value;
+			scanonweb.scaner_work_config.autoDeskew = document.getElementById("autoDeskew").value;
+			scanonweb.scaner_work_config.autoBorderDetection = document.getElementById("autoBorderDetection").value;
+
+
+			//开始发送扫描指令
+			scanonweb.startScan();
+
+		}
+
+		//清空所有扫描图像
+		function clearAll() {
+			scanonweb.clearAll();
+			document.getElementById('pdf_viewer').contentWindow.location.reload();
+		}
+
+		//获取图像总数
+		function getImageCount() {
+			scanonweb.getImageCount();
+		}
+
+		//获取所有图像
+		function getAllImage() {
+			scanonweb.getAllImage();
+		}
+
+		//按照jpg格式上传所有图像
+		function uploadAllImageAsJpgFormat() {
+			var uploadUrl = 'http://localhost:8080/upload/uploadjpg';
+			for (imageIndex=0;imageIndex<scanonweb.imageCount;imageIndex++){
+				scanonweb.uploadJpgImageByIndex(uploadUrl,'1234','test',imageIndex);
+			}			
+		}
+
+		//按照pdf格式上传所有图像
+		function uploadAllImageAsPdfFormat(){
+			scanonweb.uploadAllImageAsPdfToUrl('http://localhost:8080/uploadpdf/upload','1234','test');	
+		}
+
+		//按照tiff格式上传所有图像
+		function uploadAllImageAsTiffFormat(){
+			scanonweb.uploadAllImageAsTiffToUrl('http://localhost:8080/uploadtiff/uploadtiff','1234','test');	
+		}
+
+	</script>
+</body>
+
+</html>
